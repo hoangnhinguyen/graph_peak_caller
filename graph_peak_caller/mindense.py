@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 
@@ -10,6 +11,11 @@ class DensePileup:
         index = node - self._graph.min_node
         array_start = self._graph.node_indexes[index] + start
         array_end = self._graph.node_indexes[index] + end
+        if index < 0 or array_end > len(self._values):
+            logging.error("node=%s min_node=%s max_node=%s index=%s start=%s end=%s "
+                        "array_start=%s array_end=%s len_values=%s" %
+                        (node, self._graph.min_node, self._graph.node_indexes.shape[0] - 1 + self._graph.min_node,
+                        index, start, end, array_start, array_end, len(self._values)))
         assert array_end > array_start
         assert array_end <= len(self._values), "Array end %d > len of values %s" % (array_end, len(self._values))
         out = self._values[array_start:array_end]

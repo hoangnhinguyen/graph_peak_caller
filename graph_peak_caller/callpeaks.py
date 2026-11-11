@@ -183,6 +183,32 @@ class CallPeaksFromQvalues:
         self._reporter.add("all_max_paths", max_paths)
         logging.info("All max paths found")
 
+        # --- Filter out max_paths whose region_paths reference node IDs
+        # outside this graph's own valid node range. SegmentSplitter can
+        # sometimes produce corrupted node IDs (root cause not yet fully
+        # isolated); rather than crash on these (mindense.py assertion) or
+        # silently score garbage data, drop them here with a logged warning. ---
+        min_node = self.graph.min_node
+        max_node = self.graph.min_node + len(self.graph.node_indexes) - 2
+        valid_pairs = []
+        n_dropped = 0
+        for max_path, sub_graph in zip(max_paths, sub_graphs):
+            node_ids = [abs(rp) for rp in max_path.region_paths]
+            bad_ids = [nid for nid in node_ids if not (min_node <= nid <= max_node)]
+            if not bad_ids:
+                valid_pairs.append((max_path, sub_graph))
+            else:
+                n_dropped += 1
+                logging.warning(
+                    "Dropping max_path with out-of-range node(s) %s "
+                    "(valid range %d-%d): %s",
+                    bad_ids, min_node, max_node, max_path)
+        if n_dropped:
+            logging.warning("Dropped %d/%d max_paths with out-of-range node IDs",
+                            n_dropped, len(max_paths))
+        max_paths = [p for p, _ in valid_pairs]
+        sub_graphs = [g for _, g in valid_pairs]
+
         self.q_values = DensePileup(
             self.graph, self.q_values.to_dense_pileup(
                 self.graph.node_indexes[-1]))
